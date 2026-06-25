@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Generation Tree Builder Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Dependency for image map capturing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f1ea;
+            --sidebar-bg: #ebd0b2;
+            --primary-orange: #e07a5f;
+            --primary-blue: #3d5a80;
+            --text-dark: #2f3e46;
+            --border-color: #999999;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0; padding: 0;
+            color: var(--text-dark);
+            display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* -----------------------------------------
+           SIDEBAR DASHBOARD PANEL
+        ----------------------------------------- */
+        .sidebar {
+            width: 300px; background-color: var(--sidebar-bg);
+            border-right: 2px solid #d9c3aa; display: flex; flex-direction: column;
+            padding: 20px; box-sizing: border-box; z-index: 10; overflow-y: auto;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar.hidden { margin-left: -300px; }
+
+        .main-workspace {
+            flex: 1; display: flex; flex-direction: column;
+            overflow: auto; position: relative; background-color: var(--bg-color);
+        }
+
+        .toggle-sidebar-btn {
+            position: absolute; top: 20px; left: 20px; z-index: 15;
+            background-color: var(--primary-blue); color: white; border: none;
+            border-radius: 6px; padding: 10px 14px; font-size: 14px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: flex; align-items: center; gap: 8px; transition: background 0.2s;
+        }
+        .toggle-sidebar-btn:hover { background-color: #2b405c; }
+
+        h2.sidebar-title {
+            font-size: 18px; font-weight: 600; margin-top: 45px; margin-bottom: 20px;
+            text-transform: uppercase; color: #5c4a3c; border-bottom: 2px solid #d9c3aa; padding-bottom: 8px;
+        }
+
+        .creator-box {
+            background: #fffdfa; border: 1px solid #d9c3aa; border-radius: 8px;
+            padding: 15px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+        }
+
+        .creator-box input {
+            width: 100%; padding: 8px; border: 1px solid #c9b49c; border-radius: 4px;
+            box-sizing: border-box; margin-bottom: 10px; font-size: 13px;
+        }
+
+        .btn-create {
+            width: 100%; padding: 10px; background-color: var(--primary-blue); color: white;
+            border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-create:hover { background-color: #2b405c; }
+
+        .history-section h4 { margin: 0 0 10px 0; color: #5c4a3c; font-size: 13px; text-transform: uppercase; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .history-item {
+            background: #fffdfa; border: 1px solid #d9c3aa; padding: 10px 12px;
+            border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between;
+            align-items: center; transition: background 0.2s, transform 0.1s;
+        }
+        .history-item:hover { background: #f7ebd9; transform: translateX(2px); }
+        .history-item.active { border-color: var(--primary-orange); background: #fcf1e3; font-weight: bold; }
+        .history-item span { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+        .history-actions button { background: transparent; border: none; cursor: pointer; color: #888; padding: 4px; font-size: 13px; }
+        .history-actions button:hover { color: #d9534f; }
+
+        /* -----------------------------------------
+           HEADER & EDITABLE INTERACTION
+        ----------------------------------------- */
+        .header-title-area { padding: 20px 20px 0 20px; text-align: center; }
+        .editable-title-container {
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            cursor: pointer; padding: 4px 12px; border-radius: 6px; transition: background 0.2s;
+        }
+        .editable-title-container:hover { background: rgba(0,0,0,0.05); }
+        .header-title-area h1 { margin: 0; font-weight: 500; font-size: 28px; }
+        .editable-title-container i { color: #888; font-size: 16px; }
+        .header-title-area p.subtitle { margin: 5px 0 0 0; color: #777; font-size: 13px; }
+
+        .toolbar { display: flex; justify-content: center; gap: 15px; padding: 15px 20px; }
+        .tool-btn {
+            padding: 10px 20px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .btn-png { background-color: #2a9d8f; color: white; }
+        .btn-png:hover { background-color: #218276; }
+        .btn-print { background-color: #e76f51; color: white; }
+        .btn-print:hover { background-color: #d15c3f; }
+
+        /* -----------------------------------------
+           FLAWLESS WIRE GENERATION CHART ARCHITECTURE
+        ----------------------------------------- */
+        .tree-container {
+            display: flex; justify-content: center; align-items: flex-start;
+            min-width: max-content; padding: 40px; margin: 0 auto; background-color: var(--bg-color);
+        }
+
+        .tree, .tree ul { display: flex; justify-content: center; padding: 0; margin: 0; list-style-type: none; position: relative; }
+        .tree ul { padding-top: 40px; }
+
+        .tree li { text-align: center; position: relative; padding: 40px 15px 0 15px; }
+
+        /* Horizontal wire routing bridges */
+        .tree li::before, .tree li::after {
+            content: ''; position: absolute; top: 0; right: 50%;
+            border-top: 3px solid var(--border-color); width: 50%; height: 40px; z-index: 1;
+        }
+        .tree li::after { right: auto; left: 50%; border-left: 3px solid var(--border-color); }
+
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree li:last-child::before { border-right: 3px solid var(--border-color); border-radius: 0 5px 0 0; }
+        .tree li:first-child::after { border-radius: 5px 0 0 0; }
+
+        /* Vertical line routing connecting directly over the heart node center box */
+        .tree ul::before {
+            content: ''; position: absolute; top: -40px; left: 50%;
+            border-left: 3px solid var(--border-color); width: 0; height: 80px; z-index: 1;
+        }
+
+        .couple-container { display: inline-flex; align-items: center; justify-content: center; gap: 24px; position: relative; z-index: 2; }
+        .couple-container.has-spouse::before {
+            content: ''; position: absolute; top: 50%; left: 40px; right: 40px;
+            height: 3px; background-color: var(--border-color); transform: translateY(-50%); z-index: -1;
+        }
+
+        .spouse-link {
+            width: 26px; height: 26px; border: 3px solid var(--border-color); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; background-color: #fff;
+            color: #ff5252; font-size: 11px; z-index: 3; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .member-card {
+            background: #ffffff; border: 2px solid #fff; border-radius: 50%;
+            width: 85px; height: 85px; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s; position: relative; z-index: 2; box-sizing: border-box;
+        }
+        .member-card:hover { transform: scale(1.08); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+
+        .member-card.male .avatar-circle { background-color: var(--primary-blue); }
+        .member-card.female .avatar-circle { background-color: var(--primary-orange); }
+
+        .avatar-circle {
+            width: 81px; height: 81px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; color: white; font-size: 32px; overflow: hidden; position: relative;
+        }
+        .avatar-circle img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+
+        .member-name {
+            margin-top: 5px; font-size: 11px; font-weight: 600; text-align: center; max-width: 95px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: absolute; bottom: -24px;
+            background: rgba(244, 241, 234, 0.85); padding: 1px 4px; border-radius: 4px;
+        }
+
+        /* -----------------------------------------
+           HIGH FIDELITY PRINT MEDIA SYSTEM
+        ----------------------------------------- */
+        #printSystemContainer { display: none; }
+        .print-page-break { page-break-after: always; page-break-inside: avoid; clear: both; }
+
+        #printMapPageCanvasTarget { text-align: center; width: 100%; }
+        #printMapPageCanvasTarget img { max-width: 100%; height: auto; display: inline-block; }
+
+        .ledger-print-wrapper { background-color: #ffffff; padding: 20px; font-family: Arial, sans-serif; }
+        .ledger-title {
+            text-align: center; font-size: 24px; font-weight: bold; border-bottom: 3px dashed var(--text-dark);
+            padding-bottom: 10px; margin-bottom: 30px; text-transform: uppercase;
+        }
+        .ledger-card {
+            display: flex; gap: 25px; background: #ffffff; border: 2px solid #ddd;
+            border-radius: 8px; padding: 20px; margin-bottom: 20px; page-break-inside: avoid; align-items: center;
+        }
+        .ledger-avatar {
+            width: 90px; height: 90px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 40px; color: white;
+        }
+        .ledger-card.male .ledger-avatar { background-color: var(--primary-blue); }
+        .ledger-card.female .ledger-avatar { background-color: var(--primary-orange); }
+        .ledger-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .ledger-details { flex: 1; }
+        .ledger-details h3 { margin: 0 0 10px 0; font-size: 20px; color: #111; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .ledger-grid { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 14px; }
+        .ledger-label { font-weight: bold; color: #555; text-transform: uppercase; font-size: 11px; }
+        .ledger-value { color: #222; }
+
+        @media print {
+            @page { size: auto; margin: 15mm; }
+            body { background: #ffffff !important; overflow: visible !important; height: auto !important; }
+            .sidebar, .toolbar, .toggle-sidebar-btn, .header-title-area, .action-menu-overlay, .modal-overlay, .tree-container { display: none !important; }
+            .main-workspace { overflow: visible !important; display: block !important; background: #ffffff !important; }
+            #printSystemContainer { display: block !important; }
+        }
+
+        /* -----------------------------------------
+           MODALS & CONTEXT DIALOG OVERLAYS
+        ----------------------------------------- */
+        .action-menu-overlay, .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); z-index: 100; justify-content: center; align-items: center;
+        }
+        .modal-overlay { z-index: 110; background: rgba(0,0,0,0.5); }
+        .action-box { background: #ffffff; border-radius: 12px; padding: 20px; width: 280px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); text-align: center; }
+        .action-box h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; color: #333; }
+        .menu-btn {
+            display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; margin-bottom: 8px;
+            border: none; background: #f0f0f0; border-radius: 6px; cursor: pointer; font-size: 14px;
+            font-weight: 600; color: var(--text-dark); transition: background 0.2s;
+        }
+        .menu-btn:hover { background: #e0e0e0; }
+        .menu-btn i { font-size: 16px; width: 20px; text-align: center; }
+        .menu-btn.edit-btn { background-color: #3d5a80; color: white; }
+        .menu-btn.delete-btn { background-color: #e07a5f; color: white; }
+        .menu-btn.cancel-btn { background-color: #999; color: white; margin-bottom: 0; justify-content: center; }
+
+        .edit-modal { background-color: #fdf8f0; border-radius: 12px; width: 330px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative; border: 1px solid #ebd0b2; }
+        .modal-close-btn { position: absolute; top: 15px; right: 15px; background: #ddd; border: none; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .modal-avatar-section { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .modal-avatar-preview { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 26px; overflow: hidden; background-color: var(--primary-blue); }
+        .modal-avatar-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .modal-name-inputs input { width: 100%; padding: 8px; margin-bottom: 6px; border: 1px solid #d9c3aa; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+        .upload-group { margin-bottom: 15px; text-align: left; }
+        .upload-group label { display: block; font-size: 11px; color: #b28d6c; margin-bottom: 4px; text-transform: uppercase; font-weight: 600; }
+        .gender-toggle { display: flex; margin-bottom: 15px; }
+        .gender-btn { flex: 1; padding: 8px; border: 1px solid #d9c3aa; background: #fff; cursor: pointer; font-weight: bold; color: #777; }
+        .gender-btn.active-male { background-color: var(--primary-blue); color: white; }
+        .gender-btn.active-female { background-color: var(--primary-orange); color: white; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 11px; color: #b28d6c; margin-bottom: 4px; text-transform: uppercase; font-weight: 600; }
+        .date-row { display: flex; gap: 8px; }
+        .date-row input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #d9c3aa; border-radius: 4px; font-size: 13px; box-sizing: border-box; }
+        .save-btn { width: 100%; padding: 10px; background-color: #b28d6c; border: none; color: white; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- TOGGLE SIDEBAR BUTTON -->
+    <button class="toggle-sidebar-btn" onclick="toggleSidebarMenu()">
+        <i class="fa-solid fa-bars"></i> 👉 Family Manager
+    </button>
+
+    <!-- SIDEBAR CONTROL DASHBOARD -->
+    <div class="sidebar" id="sidebarDashboard">
+        <h2 class="sidebar-title">Family Manager</h2>
+        
+        <div class="creator-box">
+            <h4>New Project</h4>
+            <input type="text" id="newTreeNameInput" placeholder="e.g., Smith Ancestry">
+            <button class="btn-create" onclick="createNewFamilyTree()">Create New Tree</button>
+        </div>
+
+        <div class="history-section">
+            <h4>Saved Trees</h4>
+            <div class="history-list" id="historyListContainer"></div>
+        </div>
+    </div>
+
+    <!-- MAIN RIGHT VIEWPORT PANEL -->
+    <div class="main-workspace">
+        <div class="header-title-area">
+            <div class="editable-title-container" onclick="promptRenameActiveProject()" title="Click to rename tree">
+                <h1 id="activeTreeTitleDisplay">Family Tree Project</h1>
+                <i class="fa-solid fa-pen-to-square"></i>
+            </div>
+            <p class="subtitle">All information is synced instantly to persistent storage.</p>
+        </div>
+
+        <div class="toolbar">
+            <button class="tool-btn btn-png" onclick="exportTreeAsPNG()">
+                <i class="fa-solid fa-file-image"></i> Save Tree (PNG)
+            </button>
+            <button class="tool-btn btn-print" onclick="prepareAndTriggerPrint()">
+                <i class="fa-solid fa-file-pdf"></i> Print Tree (PDF)
+            </button>
+        </div>
+
+        <!-- APP WORKSPACE GRAPH LAYER -->
+        <div class="tree-container" id="treeContainer"></div>
+
+        <!-- SYSTEM PRINT VIEWPORT INTERNALS (PAGE 1 CANVAS RENDER + PAGE 2 LEDGER) -->
+        <div id="printSystemContainer">
+            <div id="printMapPageCanvasTarget" class="print-page-break"></div>
+            <div id="printLedgerContainer" class="ledger-print-wrapper"></div>
+        </div>
+    </div>
+
+    <!-- CONTEXT DIALOG MENUS -->
+    <div class="action-menu-overlay" id="actionMenuOverlay" onclick="closeActionMenu()">
+        <div class="action-box" onclick="event.stopPropagation()">
+            <h3 id="menuTitle">Options</h3>
+            <button class="menu-btn edit-btn" onclick="openEditModal()"><i class="fa-solid fa-pencil"></i> Edit Details</button>
+            <button class="menu-btn" onclick="instantAddSpouse()"><i class="fa-solid fa-user-plus"></i> Add Spouse</button>
+            <button class="menu-btn" onclick="instantAddChild()"><i class="fa-solid fa-child"></i> Add Child</button>
+            <button class="menu-btn delete-btn" onclick="actionDeleteNode()"><i class="fa-solid fa-trash-can"></i> Delete Branch</button>
+            <button class="menu-btn cancel-btn" onclick="closeActionMenu()">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editModalOverlay" onclick="closeEditModal()">
+        <div class="edit-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="closeEditModal()">&times;</button>
+            
+            <div class="modal-avatar-section">
+                <div class="modal-avatar-preview" id="modalAvatar"><i class="fa-solid fa-user"></i></div>
+                <div class="modal-name-inputs">
+                    <input type="text" id="editFirstName" placeholder="First Name">
+                    <input type="text" id="editLastName" placeholder="Family Name">
+                </div>
+            </div>
+
+            <div class="form-group upload-group">
+                <label>Upload Profile Picture</label>
+                <input type="file" id="avatarUploadInput" accept="image/*" onchange="previewUploadedImage(this)">
+            </div>
+
+            <div class="gender-toggle">
+                <button type="button" class="gender-btn" id="btnMale" onclick="setModalGender('male')">Male</button>
+                <button type="button" class="gender-btn" id="btnFemale" onclick="setModalGender('female')">Female</button>
+            </div>
+
+            <div class="form-group">
+                <label>Birth</label>
+                <div class="date-row">
+                    <input type="text" id="editBirthMonth" placeholder="Month">
+                    <input type="text" id="editBirthDay" placeholder="Day">
+                    <input type="text" id="editBirthYear" placeholder="Year">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Additions</label>
+                <input type="text" id="editLocation" placeholder="Location/Occupation">
+            </div>
+            <div class="form-group">
+                <label>Note</label>
+                <textarea rows="2" id="editBio" placeholder="Bio details..."></textarea>
+            </div>
+
+            <button class="save-btn" onclick="saveNodeData()">Save Details</button>
+        </div>
+    </div>
+
+    <script>
+        let activeProjectKey = ""; 
+        let currentTreeStructure = null;
+        let activeTargetId = null; 
+        let tempGenderSelection = "male";
+        let tempAvatarBase64 = null;
+
+        function toggleSidebarMenu() {
+            document.getElementById('sidebarDashboard').classList.toggle('hidden');
+        }
+
+        function initializeSystemWorkspace() {
+            let historyKeys = Object.keys(localStorage).filter(k => k.startsWith("gen_tree_"));
+            if (historyKeys.length === 0) {
+                activeProjectKey = "gen_tree_default";
+                currentTreeStructure = {
+                    projectName: "Default Family Tree",
+                    treeRoot: {
+                        id: "root-1", firstName: "Grandfather", lastName: "Root", gender: "male",
+                        avatarUrl: null, spouse: null, children: [],
+                        birthMonth: "", birthDay: "", birthYear: "", location: "", bio: ""
+                    }
+                };
+                commitStateToLocalStorage();
+            } else {
+                activeProjectKey = historyKeys[0];
+                currentTreeStructure = JSON.parse(localStorage.getItem(activeProjectKey));
+            }
+            renderSidebarHistoryPanel();
+            renderActiveWorkspaceTree();
+        }
+
+        function commitStateToLocalStorage() {
+            if (activeProjectKey && currentTreeStructure) {
+                localStorage.setItem(activeProjectKey, JSON.stringify(currentTreeStructure));
+            }
+        }
+
+        function renderSidebarHistoryPanel() {
+            const listContainer = document.getElementById('historyListContainer');
+            listContainer.innerHTML = "";
+            let historyKeys = Object.keys(localStorage).filter(k => k.startsWith("gen_tree_"));
+            historyKeys.forEach(key => {
+                let data = JSON.parse(localStorage.getItem(key));
+                let item = document.createElement('div');
+                item.className = "history-item" + (key === activeProjectKey ? " active" : "");
+                item.onclick = () => switchActiveFamilyProject(key);
+                item.innerHTML = `
+                    <span>${data.projectName || "Unnamed Project"}</span>
+                    <div class="history-actions">
+                        <button onclick="deleteEntireProject(event, '${key}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function createNewFamilyTree() {
+            const nameInput = document.getElementById('newTreeNameInput');
+            let name = nameInput.value.trim() || "New Family Tree";
+            let newKey = "gen_tree_" + Date.now();
+            let newProject = {
+                projectName: name,
+                treeRoot: {
+                    id: "root-" + Date.now(), firstName: "Primary", lastName: "Root", gender: "male",
+                    avatarUrl: null, spouse: null, children: []
+                }
+            };
+            localStorage.setItem(newKey, JSON.stringify(newProject));
+            activeProjectKey = newKey; currentTreeStructure = newProject;
+            nameInput.value = "";
+            renderSidebarHistoryPanel(); renderActiveWorkspaceTree();
+        }
+
+        function promptRenameActiveProject() {
+            if (!currentTreeStructure) return;
+            let currentName = currentTreeStructure.projectName || "Family Tree Project";
+            let newName = prompt("Enter a new name for this family tree project:", currentName);
+            if (newName !== null && newName.trim() !== "") {
+                currentTreeStructure.projectName = newName.trim();
+                commitStateToLocalStorage();
+                renderSidebarHistoryPanel();
+                renderActiveWorkspaceTree();
+            }
+        }
+
+        function switchActiveFamilyProject(key) {
+            activeProjectKey = key; currentTreeStructure = JSON.parse(localStorage.getItem(key));
+            renderSidebarHistoryPanel(); renderActiveWorkspaceTree();
+        }
+
+        function deleteEntireProject(event, key) {
+            event.stopPropagation();
+            if (confirm("Delete this entire family project permanently?")) {
+                localStorage.removeItem(key);
+                if (activeProjectKey === key) { activeProjectKey = ""; currentTreeStructure = null; initializeSystemWorkspace(); }
+                else { renderSidebarHistoryPanel(); }
+            }
+        }
+
+        function renderActiveWorkspaceTree() {
+            document.getElementById('activeTreeTitleDisplay').innerText = currentTreeStructure.projectName;
+            const container = document.getElementById('treeContainer');
+            container.innerHTML = ""; 
+            const baseUl = document.createElement('ul');
+            baseUl.className = "tree";
+            baseUl.appendChild(createNodeDom(currentTreeStructure.treeRoot));
+            container.appendChild(baseUl);
+        }
+
+        function findMemberById(root, id) {
+            if (root.id === id) return root;
+            if (root.spouse && root.spouse.id === id) return root.spouse;
+            for (let child of root.children) {
+                let found = findMemberById(child, id); if (found) return found;
+            }
+            return null;
+        }
+
+        function deleteMemberById(root, id) {
+            for (let i = 0; i < root.children.length; i++) {
+                if (root.children[i].id === id) { root.children.splice(i, 1); return true; }
+                let deepDelete = deleteMemberById(root.children[i], id); if (deepDelete) return true;
+            }
+            return false;
+        }
+
+        function createNodeDom(node) {
+            const li = document.createElement('li');
+            const coupleContainer = document.createElement('div');
+            coupleContainer.className = "couple-container" + (node.spouse ? " has-spouse" : "");
+
+            const memberCard = document.createElement('div');
+            memberCard.className = `member-card ${node.gender}`;
+            memberCard.onclick = (e) => { e.stopPropagation(); openActionMenu(node.id, node.firstName + " " + node.lastName); };
+
+            let avatarContent = node.avatarUrl ? `<img src="${node.avatarUrl}" alt="Avatar">` : `<i class="fa-solid fa-user"></i>`;
+            memberCard.innerHTML = `<div class="avatar-circle">${avatarContent}</div><div class="member-name">${node.firstName} ${node.lastName}</div>`;
+            coupleContainer.appendChild(memberCard);
+
+            if (node.spouse) {
+                const linkDiv = document.createElement('div'); linkDiv.className = "spouse-link"; linkDiv.innerHTML = '<i class="fa-solid fa-heart"></i>';
+                coupleContainer.appendChild(linkDiv);
+
+                const spouse = node.spouse;
+                const spouseCard = document.createElement('div'); spouseCard.className = `member-card ${spouse.gender}`;
+                spouseCard.onclick = (e) => { e.stopPropagation(); openActionMenu(spouse.id, spouse.firstName + " " + spouse.lastName); };
+
+                let spouseAvatarContent = spouse.avatarUrl ? `<img src="${spouse.avatarUrl}" alt="Avatar">` : `<i class="fa-solid fa-user"></i>`;
+                spouseCard.innerHTML = `<div class="avatar-circle">${spouseAvatarContent}</div><div class="member-name">${spouse.firstName} ${spouse.lastName}</div>`;
+                coupleContainer.appendChild(spouseCard);
+            }
+            li.appendChild(coupleContainer);
+
+            if (node.children && node.children.length > 0) {
+                const childrenUl = document.createElement('ul');
+                node.children.forEach(child => { childrenUl.appendChild(createNodeDom(child)); });
+                li.appendChild(childrenUl);
+            }
+            return li;
+        }
+
+        function openActionMenu(id, name) {
+            activeTargetId = id;
+            document.getElementById('menuTitle').innerText = "Manage: " + name;
+            document.getElementById('actionMenuOverlay').style.display = 'flex';
+        }
+        function closeActionMenu() { document.getElementById('actionMenuOverlay').style.display = 'none'; }
+
+        function instantAddSpouse() {
+            let target = findMemberById(currentTreeStructure.treeRoot, activeTargetId);
+            if (target) {
+                if (target.spouse) { alert("This person already has a spouse connected."); closeActionMenu(); return; }
+                target.spouse = {
+                    id: "node-" + Date.now(), firstName: "New", lastName: "Spouse", gender: target.gender === 'male' ? 'female' : 'male',
+                    avatarUrl: null, spouse: null, children: []
+                };
+                commitStateToLocalStorage(); renderActiveWorkspaceTree();
+            }
+            closeActionMenu();
+        }
+
+        function instantAddChild() {
+            function locateAndAppendChild(root) {
+                if (root.id === activeTargetId || (root.spouse && root.spouse.id === activeTargetId)) {
+                    root.children.push({ id: "node-" + Date.now(), firstName: "New", lastName: "Child", gender: "male", avatarUrl: null, spouse: null, children: [] });
+                    return true;
+                }
+                for (let child of root.children) { if (locateAndAppendChild(child)) return true; }
+                return false;
+            }
+            locateAndAppendChild(currentTreeStructure.treeRoot); commitStateToLocalStorage(); renderActiveWorkspaceTree(); closeActionMenu();
+        }
+
+        function openEditModal() {
+            closeActionMenu();
+            let target = findMemberById(currentTreeStructure.treeRoot, activeTargetId);
+            if (target) {
+                document.getElementById('editFirstName').value = target.firstName || "";
+                document.getElementById('editLastName').value = target.lastName || "";
+                document.getElementById('editBirthMonth').value = target.birthMonth || "";
+                document.getElementById('editBirthDay').value = target.birthDay || "";
+                document.getElementById('editBirthYear').value = target.birthYear || "";
+                document.getElementById('editLocation').value = target.location || "";
+                document.getElementById('editBio').value = target.bio || "";
+                document.getElementById('avatarUploadInput').value = ""; 
+                tempAvatarBase64 = target.avatarUrl; 
+                setModalGender(target.gender || "male");
+                updateModalAvatarPreview();
+                document.getElementById('editModalOverlay').style.display = 'flex';
+            }
+        }
+        function closeEditModal() { document.getElementById('editModalOverlay').style.display = 'none'; }
+
+        function previewUploadedImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) { tempAvatarBase64 = e.target.result; updateModalAvatarPreview(); };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function updateModalAvatarPreview() {
+            const preview = document.getElementById('modalAvatar');
+            preview.innerHTML = tempAvatarBase64 ? `<img src="${tempAvatarBase64}" alt="Preview">` : `<i class="fa-solid fa-user"></i>`;
+        }
+
+        function setModalGender(gender) {
+            tempGenderSelection = gender;
+            const maleBtn = document.getElementById('btnMale'); const femaleBtn = document.getElementById('btnFemale');
+            if (gender === 'male') { maleBtn.className = "gender-btn active-male"; femaleBtn.className = "gender-btn"; } 
+            else { femaleBtn.className = "gender-btn active-female"; maleBtn.className = "gender-btn"; }
+        }
+
+        function saveNodeData() {
+            let target = findMemberById(currentTreeStructure.treeRoot, activeTargetId);
+            if (target) {
+                target.firstName = document.getElementById('editFirstName').value.trim() || "Unnamed";
+                target.lastName = document.getElementById('editLastName').value.trim() || "";
+                target.birthMonth = document.getElementById('editBirthMonth').value.trim();
+                target.birthDay = document.getElementById('editBirthDay').value.trim();
+                target.birthYear = document.getElementById('editBirthYear').value.trim();
+                target.location = document.getElementById('editLocation').value.trim();
+                target.bio = document.getElementById('editBio').value.trim();
+                target.gender = tempGenderSelection; target.avatarUrl = tempAvatarBase64; 
+                closeEditModal(); commitStateToLocalStorage(); renderActiveWorkspaceTree();
+            }
+        }
+
+        function actionDeleteNode() {
+            closeActionMenu();
+            let rootNode = currentTreeStructure.treeRoot;
+            if (activeTargetId === rootNode.id || (rootNode.spouse && activeTargetId === rootNode.spouse.id)) { alert("Root node cannot be deleted."); return; }
+            if (confirm("Delete this branch?")) {
+                function checkAndWipeSpouse(root) {
+                    if (root.spouse && root.spouse.id === activeTargetId) { root.spouse = null; return true; }
+                    for (let child of root.children) { if (checkAndWipeSpouse(child)) return true; }
+                    return false;
+                }
+                if (!checkAndWipeSpouse(rootNode)) deleteMemberById(rootNode, activeTargetId);
+                commitStateToLocalStorage(); renderActiveWorkspaceTree();
+            }
+        }
+
+        /* -----------------------------------------
+           PREMIUM HIGH-FIDELITY RENDER PRINT ENGINE
+        ----------------------------------------- */
+        function prepareAndTriggerPrint() {
+            const canvasTarget = document.getElementById('printMapPageCanvasTarget');
+            const ledger = document.getElementById('printLedgerContainer');
+            
+            canvasTarget.innerHTML = "<p style='text-align:center;'>Generating HD Map Page Preview...</p>";
+            ledger.innerHTML = `<div class="ledger-title">${currentTreeStructure.projectName} - Bio Registry Ledger</div>`;
+
+            // Phase 1: Snapshot the Tree element to produce pixel-perfect rendering for Page 1
+            html2canvas(document.getElementById('treeContainer'), {
+                useCORS: true, backgroundColor: "#f4f1ea", scale: 3, logging: false
+            }).then(canvas => {
+                canvasTarget.innerHTML = "";
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL('image/png', 1.0);
+                canvasTarget.appendChild(img);
+
+                // Phase 2: Build descriptive data cards for Page 2
+                let descriptiveNodesFound = [];
+                function scanNode(node) {
+                    if (node) {
+                        if (node.birthYear || node.location || node.bio || node.avatarUrl) { descriptiveNodesFound.push(node); }
+                        if (node.spouse && (node.spouse.birthYear || node.spouse.location || node.spouse.bio || node.spouse.avatarUrl)) {
+                            descriptiveNodesFound.push(node.spouse);
+                        }
+                        if (node.children) { node.children.forEach(child => scanNode(child)); }
+                    }
+                }
+                scanNode(currentTreeStructure.treeRoot);
+
+                if (descriptiveNodesFound.length === 0) {
+                    ledger.innerHTML += `<p style="text-align:center; color:#777; padding: 20px;">No bio details provided yet for members of this family group.</p>`;
+                } else {
+                    descriptiveNodesFound.forEach(member => {
+                        let birthStr = `${member.birthMonth || '—'}/${member.birthDay || '—'}/${member.birthYear || '—'}`;
+                        let avatarHtml = member.avatarUrl ? `<img src="${member.avatarUrl}">` : `<i class="fa-solid fa-user"></i>`;
+                        
+                        let card = document.createElement('div');
+                        card.className = `ledger-card ${member.gender || 'male'}`;
+                        card.innerHTML = `
+                            <div class="ledger-avatar">${avatarHtml}</div>
+                            <div class="ledger-details">
+                                <h3>${member.firstName} ${member.lastName}</h3>
+                                <div class="ledger-grid">
+                                    <div class="ledger-label">Gender:</div><div class="ledger-value">${member.gender || 'Male'}</div>
+                                    <div class="ledger-label">Birth Date:</div><div class="ledger-value">${birthStr}</div>
+                                    <div class="ledger-label">Additions:</div><div class="ledger-value">${member.location || '—'}</div>
+                                    <div class="ledger-label">Biography:</div><div class="ledger-value">${member.bio || '—'}</div>
+                                </div>
+                            </div>
+                        `;
+                        ledger.appendChild(card);
+                    });
+                }
+
+                // Fire safe window command loop
+                setTimeout(() => { window.print(); }, 500);
+            });
+        }
+
+        function exportTreeAsPNG() {
+            html2canvas(document.getElementById('treeContainer'), {
+                useCORS: true, backgroundColor: "#f4f1ea", scale: 4, logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `${currentTreeStructure.projectName}.png`;
+                link.href = canvas.toDataURL('image/png', 1.0); link.click();
+            });
+        }
+
+        window.onload = initializeSystemWorkspace;
+    </script>
+</body>
+</html>
