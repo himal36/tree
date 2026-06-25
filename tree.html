@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Infinite Generation Tree Builder Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Dependency for image map capturing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -33,26 +32,29 @@
             border-right: 2px solid #d9c3aa; display: flex; flex-direction: column;
             padding: 20px; box-sizing: border-box; z-index: 10; overflow-y: auto;
             transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-left: -300px; /* Hidden by default */
         }
 
-        .sidebar.hidden { margin-left: -300px; }
+        .sidebar.show { margin-left: 0; }
 
         .main-workspace {
             flex: 1; display: flex; flex-direction: column;
             overflow: auto; position: relative; background-color: var(--bg-color);
         }
 
+        /* Enhanced Toggle Button styled as a floating badge */
         .toggle-sidebar-btn {
             position: absolute; top: 20px; left: 20px; z-index: 15;
             background-color: var(--primary-blue); color: white; border: none;
-            border-radius: 6px; padding: 10px 14px; font-size: 14px; font-weight: bold;
-            cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            display: flex; align-items: center; gap: 8px; transition: background 0.2s;
+            border-radius: 30px; padding: 12px 20px; font-size: 14px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex; align-items: center; gap: 10px; transition: all 0.2s ease;
         }
-        .toggle-sidebar-btn:hover { background-color: #2b405c; }
+        .toggle-sidebar-btn:hover { background-color: #2b405c; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+        .toggle-sidebar-btn i { font-size: 16px; }
 
         h2.sidebar-title {
-            font-size: 18px; font-weight: 600; margin-top: 45px; margin-bottom: 20px;
+            font-size: 18px; font-weight: 600; margin-top: 55px; margin-bottom: 20px;
             text-transform: uppercase; color: #5c4a3c; border-bottom: 2px solid #d9c3aa; padding-bottom: 8px;
         }
 
@@ -60,6 +62,8 @@
             background: #fffdfa; border: 1px solid #d9c3aa; border-radius: 8px;
             padding: 15px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.03);
         }
+
+        .creator-box h4 { margin: 0 0 10px 0; color: #5c4a3c; font-size: 13px; text-transform: uppercase; }
 
         .creator-box input {
             width: 100%; padding: 8px; border: 1px solid #c9b49c; border-radius: 4px;
@@ -89,7 +93,7 @@
         /* -----------------------------------------
            HEADER & EDITABLE INTERACTION
         ----------------------------------------- */
-        .header-title-area { padding: 20px 20px 0 20px; text-align: center; }
+        .header-title-area { padding: 25px 20px 0 20px; text-align: center; margin-left: 120px; } /* Adjusted offset for floating button layout */
         .editable-title-container {
             display: inline-flex; align-items: center; justify-content: center; gap: 10px;
             cursor: pointer; padding: 4px 12px; border-radius: 6px; transition: background 0.2s;
@@ -258,12 +262,10 @@
 </head>
 <body>
 
-    <!-- TOGGLE SIDEBAR BUTTON -->
     <button class="toggle-sidebar-btn" onclick="toggleSidebarMenu()">
-        <i class="fa-solid fa-bars"></i> 👉 Family Manager
+        <i class="fa-solid fa-folder-tree"></i> Family Manager
     </button>
 
-    <!-- SIDEBAR CONTROL DASHBOARD -->
     <div class="sidebar" id="sidebarDashboard">
         <h2 class="sidebar-title">Family Manager</h2>
         
@@ -279,8 +281,7 @@
         </div>
     </div>
 
-    <!-- MAIN RIGHT VIEWPORT PANEL -->
-    <div class="main-workspace">
+    <div class="main-workspace" onclick="closeSidebarIfOpen()">
         <div class="header-title-area">
             <div class="editable-title-container" onclick="promptRenameActiveProject()" title="Click to rename tree">
                 <h1 id="activeTreeTitleDisplay">Family Tree Project</h1>
@@ -298,17 +299,14 @@
             </button>
         </div>
 
-        <!-- APP WORKSPACE GRAPH LAYER -->
         <div class="tree-container" id="treeContainer"></div>
 
-        <!-- SYSTEM PRINT VIEWPORT INTERNALS (PAGE 1 CANVAS RENDER + PAGE 2 LEDGER) -->
         <div id="printSystemContainer">
             <div id="printMapPageCanvasTarget" class="print-page-break"></div>
             <div id="printLedgerContainer" class="ledger-print-wrapper"></div>
         </div>
     </div>
 
-    <!-- CONTEXT DIALOG MENUS -->
     <div class="action-menu-overlay" id="actionMenuOverlay" onclick="closeActionMenu()">
         <div class="action-box" onclick="event.stopPropagation()">
             <h3 id="menuTitle">Options</h3>
@@ -371,7 +369,12 @@
         let tempAvatarBase64 = null;
 
         function toggleSidebarMenu() {
-            document.getElementById('sidebarDashboard').classList.toggle('hidden');
+            document.getElementById('sidebarDashboard').classList.toggle('show');
+        }
+
+        function closeSidebarIfOpen() {
+            // Closes the panel if a user clicks outside onto the main viewport area
+            document.getElementById('sidebarDashboard').classList.remove('show');
         }
 
         function initializeSystemWorkspace() {
@@ -409,7 +412,7 @@
                 let data = JSON.parse(localStorage.getItem(key));
                 let item = document.createElement('div');
                 item.className = "history-item" + (key === activeProjectKey ? " active" : "");
-                item.onclick = () => switchActiveFamilyProject(key);
+                item.onclick = (e) => { e.stopPropagation(); switchActiveFamilyProject(key); };
                 item.innerHTML = `
                     <span>${data.projectName || "Unnamed Project"}</span>
                     <div class="history-actions">
@@ -435,6 +438,7 @@
             activeProjectKey = newKey; currentTreeStructure = newProject;
             nameInput.value = "";
             renderSidebarHistoryPanel(); renderActiveWorkspaceTree();
+            closeSidebarIfOpen();
         }
 
         function promptRenameActiveProject() {
@@ -452,6 +456,7 @@
         function switchActiveFamilyProject(key) {
             activeProjectKey = key; currentTreeStructure = JSON.parse(localStorage.getItem(key));
             renderSidebarHistoryPanel(); renderActiveWorkspaceTree();
+            closeSidebarIfOpen();
         }
 
         function deleteEntireProject(event, key) {
@@ -637,7 +642,6 @@
             canvasTarget.innerHTML = "<p style='text-align:center;'>Generating HD Map Page Preview...</p>";
             ledger.innerHTML = `<div class="ledger-title">${currentTreeStructure.projectName} - Bio Registry Ledger</div>`;
 
-            // Phase 1: Snapshot the Tree element to produce pixel-perfect rendering for Page 1
             html2canvas(document.getElementById('treeContainer'), {
                 useCORS: true, backgroundColor: "#f4f1ea", scale: 3, logging: false
             }).then(canvas => {
@@ -646,7 +650,6 @@
                 img.src = canvas.toDataURL('image/png', 1.0);
                 canvasTarget.appendChild(img);
 
-                // Phase 2: Build descriptive data cards for Page 2
                 let descriptiveNodesFound = [];
                 function scanNode(node) {
                     if (node) {
@@ -684,7 +687,6 @@
                     });
                 }
 
-                // Fire safe window command loop
                 setTimeout(() => { window.print(); }, 500);
             });
         }
